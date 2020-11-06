@@ -1,10 +1,10 @@
-turtles-own [category]
+turtles-own [category my-imume-time]
 patches-own [infectious-time-left]
 
 
 to setup ;; Make all the turtles based on the sliders
   clear-all
-  ask patches [set pcolor white]
+  ask patches [set pcolor background]
   create-turtles starting-healty [ setxy random-xcor random-ycor set category "healty" set color blue] ;; spawn healty turtles
   create-turtles starting-infectious [ setxy random-xcor random-ycor set category "infected" set color red] ;; spawn infected turtles
   reset-ticks
@@ -17,8 +17,8 @@ to go  ;; Main function.
       if infectious-time-left > 1 [ ;; If a patch has more then 1 infectious-time-left remove 1
         set infectious-time-left infectious-time-left - 1
         if infectious-time-left = 1 [ ;; If a patch has 1 infectious-time-left make it white
-          set pcolor white]]]
-    [set pcolor white] ;; This is the else
+          set pcolor background]]]
+    [set pcolor background] ;; This is the else
   ]
 
   ;; First every turtle moves and then every category has it's own function
@@ -49,24 +49,34 @@ to infected
   ;; This function is run by all infected turtles
   set color red
   create-infection-area
-  ifelse random 100 < getting-ill-chance [set category "ill"] [if random 100 < recovery-chance [set category "healty"]] ;; this is bad because getting ill goes first
+  ifelse random 100 < getting-ill-chance [set category "ill"] [if random 100 < recovery-chance [become-immune]] ;; this is bad because getting ill goes first
 end
 
 to ill
   ;; This function is run by all ill turtles
   set color red - 3
   create-infection-area
-  if random 100 < recovery-chance [set category "infected"]
+  if random 100 < recovery-chance [become-immune]
+end
+
+to become-immune
+  set color blue - 4
+  set category "imume"
+  set my-imume-time imume-time
 end
 
 to immune
   ;; This function is run by all imume turtles
+  set my-imume-time my-imume-time - 1
 end
 
 
 
 to create-infection-area
-    if show-infect-area [  ask patches in-radius infect-range [set pcolor red - 2 set infectious-time-left area-stays-infectef-for-ticks] ]
+   ask patches in-radius infect-range [
+    set infectious-time-left area-stays-infectef-for-ticks
+    if show-infect-area [set pcolor red - 2]
+  ]
 end
 
 
@@ -145,7 +155,7 @@ starting-infectious
 starting-infectious
 0
 20
-5.0
+2.0
 1
 1
 NIL
@@ -160,7 +170,7 @@ starting-healty
 starting-healty
 0
 100
-78.0
+33.0
 1
 1
 NIL
@@ -173,7 +183,7 @@ SWITCH
 184
 show-infect-area
 show-infect-area
-0
+1
 1
 -1000
 
@@ -186,7 +196,7 @@ area-stays-infectef-for-ticks
 area-stays-infectef-for-ticks
 0
 100
-61.0
+5.0
 1
 1
 NIL
@@ -216,7 +226,7 @@ infect-chance
 infect-chance
 0
 100
-10.0
+5.0
 1
 1
 NIL
@@ -225,7 +235,7 @@ HORIZONTAL
 PLOT
 26
 367
-241
+342
 570
 plot 1
 time
@@ -251,7 +261,7 @@ recovery-chance
 recovery-chance
 0
 100
-0.0
+3.0
 1
 1
 NIL
@@ -266,7 +276,7 @@ getting-ill-chance
 getting-ill-chance
 0
 100
-25.0
+50.0
 1
 1
 NIL
@@ -297,6 +307,31 @@ infect-change-when-ill
 0
 100
 57.0
+1
+1
+NIL
+HORIZONTAL
+
+CHOOSER
+986
+66
+1124
+111
+background
+background
+9.9 0
+0
+
+SLIDER
+223
+86
+395
+119
+imume-time
+imume-time
+0
+5000
+100.0
 1
 1
 NIL
