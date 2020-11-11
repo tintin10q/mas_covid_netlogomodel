@@ -1,55 +1,54 @@
-turtles-own [category my-imume-time]
-patches-own [infectious-time-left]
+turtles-own [category my-immune-time was-in-infected-area alive-time immune-level time-till-next-vacination]
+patches-own [infectious]
 
 
 to setup ;; Make all the turtles based on the sliders
   clear-all
+
   ask patches [set pcolor background]
-  create-turtles starting-healty [ setxy random-xcor random-ycor set category "healty" set color blue] ;; spawn healty turtles
-  create-turtles starting-infectious [ setxy random-xcor random-ycor set category "infected" set color red] ;; spawn infected turtles
+  create-turtles starting-healty [ setxy random-xcor random-ycor set category "healty" set color blue set was-in-infected-area 0 set shape "person"] ;; spawn healty turtles
+  create-turtles starting-infectious [ setxy random-xcor random-ycor set category "infected" set color red set shape "person"] ;; spawn infected turtles
   reset-ticks
 end
 
 to go  ;; Main function.
 
-  ask patches [ ;;  If show infect range is on decrease the timer otherwise reset all patches
-    ifelse show-infect-area [
-      if infectious-time-left > 1 [ ;; If a patch has more then 1 infectious-time-left remove 1
-        set infectious-time-left infectious-time-left - 1
-        if infectious-time-left = 1 [ ;; If a patch has 1 infectious-time-left make it white
-          set pcolor background]]]
-    [set pcolor background] ;; This is the else
-  ]
+  ifelse show-infect-area [
+    ask patches with [infectious = true] [set pcolor background set infectious false ] ;; This is the else
+  ] [ask patches [set pcolor background set infectious false]]
 
-  ;; First every turtle moves and then every category has it's own function
-  ask turtles [
-    move
-    ask turtles with [category = "healty"] [ healty ]
-    ask turtles with [category = "ill"] [ ill ]
-    ask turtles with [category = "infected"] [ infected ]
-    ask turtles with [category = "imume"] [ immune ]
-]
+
+  ask turtles with [category = "ill"] [ ill ]
+  ask turtles with [category = "infected"] [ move infected]
+  ask turtles with [category = "healty"] [ move healty]
+  ask turtles with [category = "immune"] [ move immune]
+
+  let backup-vaccinated-per-tick vaccinated-per-tick
+  become-vacinated vaccinated-per-tick
+
   tick
 end
 
 to move
+  set alive-time alive-time + 1
   ;; Function to move turtles
-    right random 30
-    left random 30
-    forward 1
+  right random 30
+  left random 30
+  forward 1
 end
 
 to healty
   ;; This function is run by all healty turtles
   set color blue
   test-if-should-become-infected
+
 end
 
 to infected
   ;; This function is run by all infected turtles
   set color red
   create-infection-area
-  ifelse random 100 < getting-ill-chance [set category "ill"] [if random 100 < recovery-chance [become-immune]] ;; this is bad because getting ill goes first
+  if random 100 < getting-ill-chance [set category "ill"] ;; this is bad because getting ill goes first
 end
 
 to ill
@@ -60,29 +59,77 @@ to ill
 end
 
 to become-immune
-  set color blue - 4
-  set category "imume"
-  set my-imume-time imume-time
+  set color yellow
+  set category "immune"
+  set my-immune-time 60 + random 40
+end
+
+to become-vacinated [amount]
+  repeat amount [
+    if count turtles with [category = "healty"  and time-till-next-vacination = 0] > 0[
+      ;; if there are healty turtles and they have not been facinated yet then do
+      ask one-of turtles with [category = "healty" and time-till-next-vacination = 0] [
+        set time-till-next-vacination 31
+        set immune-level immune-level + 1
+  ]]]
+
+  ;; make immune-level higher if timer hits 1 and reset timer
+  ask turtles with [category = "healty" and time-till-next-vacination = 1] [
+    set time-till-next-vacination 30
+    set immune-level immune-level + 1
+  ]
+
+  ;; make turtle become immune if immune-level = slider amount
+  ask turtles with [category = "healty" and immune-level = vacinations-needed-to-become-immune] [
+    set category "immune"
+    set my-immune-time -1
+  ]
+
+  ;; remove 1 from the vacination timer
+  ask turtles with [time-till-next-vacination > 0] [
+    set time-till-next-vacination time-till-next-vacination - 1
+  ]
+
 end
 
 to immune
-  ;; This function is run by all imume turtles
-  set my-imume-time my-imume-time - 1
+  set color yellow
+  ;; This function is run by all immune turtles
+
+  if my-immune-time > 1 [set my-immune-time my-immune-time - 1]
+  if my-immune-time = 1 [set category "healty"]
 end
 
 
 
 to create-infection-area
-   ask patches in-radius infect-range [
-    set infectious-time-left area-stays-infectef-for-ticks
+  ask patches in-radius infect-range [
+    set infectious true
     if show-infect-area [set pcolor red - 2]
   ]
 end
 
 
 to test-if-should-become-infected
-    ;; If turtle is on patch that has infect-time-left than there is a change that a turtle gets infected
-  ask turtles with [infectious-time-left > 1]  [if random 100 < infect-chance [ set category "infected"]]
+  ;; If turtle is on patch that has infect-time-left than there is a change that a turtle gets infected
+
+
+  ifelse infectious = true [
+    set was-in-infected-area was-in-infected-area + 1
+    if was-in-infected-area > 20 [
+      set category "infected"
+    ]
+  ] [
+    if was-in-infected-area > 0 [
+      if random 100 < infect-chance [
+        set category "infected"
+      ]
+      set was-in-infected-area 0
+    ]
+
+  ]
+
+
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
@@ -106,8 +153,8 @@ GRAPHICS-WINDOW
 30
 -30
 30
-1
-1
+0
+0
 1
 ticks
 30.0
@@ -155,7 +202,7 @@ starting-infectious
 starting-infectious
 0
 20
-2.0
+4.0
 1
 1
 NIL
@@ -170,7 +217,7 @@ starting-healty
 starting-healty
 0
 100
-33.0
+100.0
 1
 1
 NIL
@@ -188,21 +235,6 @@ show-infect-area
 -1000
 
 SLIDER
-930
-206
-1136
-239
-area-stays-infectef-for-ticks
-area-stays-infectef-for-ticks
-0
-100
-5.0
-1
-1
-NIL
-HORIZONTAL
-
-SLIDER
 934
 277
 1106
@@ -211,7 +243,7 @@ infect-range
 infect-range
 1
 5
-1.0
+2.0
 1
 1
 NIL
@@ -226,7 +258,7 @@ infect-chance
 infect-chance
 0
 100
-5.0
+58.0
 1
 1
 NIL
@@ -251,6 +283,7 @@ PENS
 "infected" 1.0 0 -2674135 true "" "plot count turtles with [category = \"infected\"]"
 "healty" 1.0 0 -8330359 true "" "plot count turtles with [category = \"healty\"]"
 "ill" 1.0 0 -10873583 true "" "plot count turtles with [category = \"ill\"]"
+"immune" 1.0 0 -13791810 true "" "plot count turtles with [category = \"immune\"]"
 
 SLIDER
 39
@@ -261,22 +294,22 @@ recovery-chance
 recovery-chance
 0
 100
-3.0
+1.0
 1
 1
 NIL
 HORIZONTAL
 
 SLIDER
-37
-246
-209
-279
+39
+243
+211
+276
 getting-ill-chance
 getting-ill-chance
 0
 100
-50.0
+9.0
 1
 1
 NIL
@@ -291,7 +324,7 @@ vaccinated-per-tick
 vaccinated-per-tick
 0
 100
-50.0
+1.0
 1
 1
 NIL
@@ -306,7 +339,7 @@ infect-change-when-ill
 infect-change-when-ill
 0
 100
-57.0
+46.0
 1
 1
 NIL
@@ -320,18 +353,35 @@ CHOOSER
 background
 background
 9.9 0
-0
+1
+
+BUTTON
+259
+22
+322
+55
+go2
+go
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
 
 SLIDER
-223
-86
-395
-119
-imume-time
-imume-time
-0
-5000
-100.0
+537
+536
+791
+569
+vacinations-needed-to-become-immune
+vacinations-needed-to-become-immune
+1
+4
+4.0
 1
 1
 NIL
