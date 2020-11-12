@@ -202,7 +202,7 @@ starting-infectious
 starting-infectious
 0
 20
-4.0
+2.0
 1
 1
 NIL
@@ -258,7 +258,7 @@ infect-chance
 infect-chance
 0
 100
-14.0
+60.0
 1
 1
 NIL
@@ -324,7 +324,7 @@ vaccinated-per-tick
 vaccinated-per-tick
 0
 100
-5.0
+1.0
 1
 1
 NIL
@@ -339,7 +339,7 @@ infect-change-when-ill
 infect-change-when-ill
 0
 100
-4.0
+40.0
 1
 1
 NIL
