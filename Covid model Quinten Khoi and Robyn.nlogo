@@ -6,7 +6,7 @@ to setup ;; Make all the turtles based on the sliders
   clear-all
 
   ask patches [set pcolor background]
-  create-turtles starting-healty [ setxy random-xcor random-ycor set category "healty" set color blue set was-in-infected-area 0 set shape "person"] ;; spawn healty turtles
+  create-turtles starting-healty [ setxy random-xcor random-ycor set category "healty" set color green set was-in-infected-area 0 set shape "person"] ;; spawn healty turtles
   create-turtles starting-infectious [ setxy random-xcor random-ycor set category "infected" set color red set shape "person"] ;; spawn infected turtles
   reset-ticks
 end
@@ -39,7 +39,7 @@ end
 
 to healty
   ;; This function is run by all healty turtles
-  set color blue
+  set color green
   test-if-should-become-infected
 
 end
@@ -59,7 +59,7 @@ to ill
 end
 
 to become-immune
-  set color yellow
+  set color blue
   set category "immune"
   set my-immune-time 60 + random 40
 end
@@ -93,7 +93,7 @@ to become-vacinated [amount]
 end
 
 to immune
-  set color yellow
+  set color blue
   ;; This function is run by all immune turtles
 
   if my-immune-time > 1 [set my-immune-time my-immune-time - 1]
@@ -133,10 +133,10 @@ to test-if-should-become-infected
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
-410
-22
-906
-519
+389
+45
+885
+542
 -1
 -1
 8.0
@@ -160,10 +160,10 @@ ticks
 30.0
 
 BUTTON
-7
+32
 21
-89
-54
+126
+55
 Setup
 setup
 NIL
@@ -177,11 +177,11 @@ NIL
 1
 
 BUTTON
-112
-22
-199
+144
+21
+238
 55
-NIL
+Go
 go
 T
 1
@@ -194,10 +194,10 @@ NIL
 0
 
 SLIDER
-32
-88
-204
-121
+31
+132
+270
+165
 starting-infectious
 starting-infectious
 0
@@ -209,10 +209,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-30
-146
-202
-179
+31
+87
+270
+120
 starting-healty
 starting-healty
 0
@@ -224,10 +224,10 @@ NIL
 HORIZONTAL
 
 SWITCH
-942
-151
-1099
-184
+927
+208
+1089
+241
 show-infect-area
 show-infect-area
 1
@@ -235,10 +235,10 @@ show-infect-area
 -1000
 
 SLIDER
-934
-277
-1106
-310
+926
+162
+1088
+195
 infect-range
 infect-range
 1
@@ -250,15 +250,15 @@ NIL
 HORIZONTAL
 
 SLIDER
-938
-352
-1110
-385
+926
+303
+1089
+336
 infect-chance
 infect-chance
 0
 100
-58.0
+14.0
 1
 1
 NIL
@@ -286,10 +286,10 @@ PENS
 "immune" 1.0 0 -13791810 true "" "plot count turtles with [category = \"immune\"]"
 
 SLIDER
-39
-196
+32
+178
+271
 211
-229
 recovery-chance
 recovery-chance
 0
@@ -301,10 +301,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-39
-243
-211
-276
+32
+224
+271
+257
 getting-ill-chance
 getting-ill-chance
 0
@@ -316,40 +316,40 @@ NIL
 HORIZONTAL
 
 SLIDER
-35
-298
-207
-331
+32
+269
+271
+302
 vaccinated-per-tick
 vaccinated-per-tick
 0
 100
-1.0
+5.0
 1
 1
 NIL
 HORIZONTAL
 
 SLIDER
-951
-417
-1123
-450
+926
+353
+1090
+386
 infect-change-when-ill
 infect-change-when-ill
 0
 100
-46.0
+4.0
 1
 1
 NIL
 HORIZONTAL
 
 CHOOSER
-986
-66
-1124
-111
+924
+46
+1085
+91
 background
 background
 9.9 0
@@ -357,10 +357,10 @@ background
 
 BUTTON
 259
-22
-322
+21
+353
 55
-go2
+Go 1x
 go
 NIL
 1
@@ -373,10 +373,10 @@ NIL
 1
 
 SLIDER
-537
-536
-791
-569
+32
+314
+271
+347
 vacinations-needed-to-become-immune
 vacinations-needed-to-become-immune
 1
