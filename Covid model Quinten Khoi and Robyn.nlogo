@@ -1,16 +1,39 @@
 turtles-own [category my-immune-time was-in-infected-area alive-time immune-level time-till-next-vacination i-am-already-infected-for-so-many-hours i-am-already-ill-for-so-many-hours vacination-target]
 patches-own [infectious]
-globals [new_day total_days]
+globals [
+  new_day
+  total_days
+  ;; These are for the culmulative graph
+  total_infected
+  total_recovered
+  total_dead
+  total_immune
+  ;; these are for r0
+  nb-infected ;; total infected people at end of a tick
+  nb-recovered ;; total recovered people at end of a tick
+  nb-infected-previous ;; previous tick total infected
+  initial-people
+  initial-healty
+  beta-n
+  r0
+  gamma
+]
 
 
 to setup ;; Make all the turtles based on the sliders
   clear-all
   ask patches [set pcolor background]
   create-turtles starting-healty [ setxy random-xcor random-ycor set category "healty" set color green set was-in-infected-area 0 set shape "person"] ;; spawn healty turtles
-  create-turtles starting-infectious [ setxy random-xcor random-ycor set category "infected" set color red set shape "person"] ;; spawn infected turtles
+  create-turtles starting-infectious [ setxy random-xcor random-ycor become-infected set shape "person"] ;; spawn infected turtles
   ;; create-turtles starting-ambulance [ set size 2 setxy random-xcor random-ycor set category "ambulance" set color white set shape "truck"] ;; spawn infected turtles
   ;; create-turtles 1 [ set size 2 setxy 0 0 set category "hospital" set color white set shape "house" set color red + 3] ;; spawn infected turtles
   create-turtles how-many-vacinaiton-places [set size 3 setxy random-xcor random-ycor set category "vaccine_place" set color yellow set shape "target"]
+  ;; These are all to calculate r0
+  set total_recovered 0
+  set total_immune 0
+  set initial-people starting-infectious + starting-healty
+  set initial-healty starting-healty
+  set nb-infected-previous starting-infectious
   reset-ticks
 end
 
@@ -24,11 +47,13 @@ end
 
 
 to go  ;; Main function.
-  if count turtles with [category = "healty"] + count turtles with [category = "infected"] + count turtles with [category = "ill"] = 0 [stop] ;; stop if there are no healty people anymore
+  if count turtles with [category = "infected"] + count turtles with [category = "ill"] = 0 [stop] ;; stop if there are no danderous people anymore
   calculate_days
   ifelse show-infect-area [
     ask patches with [infectious = true] [set pcolor background set infectious false ] ;; This is the else
   ] [ask patches [set pcolor background set infectious false]]
+
+
 
   ask turtles with [category = "ill"] [ ill ]
   ask turtles with [category = "never-recover"] [ never-recover ]
@@ -37,8 +62,12 @@ to go  ;; Main function.
   ask turtles with [category = "immune"] [ move immune]
   ask turtles with [category = "vaccine_place"] [inject-vacine-into-people]
   select-vacinate-targets
-  ;; let backup-vaccinated-per-tick vaccinated-per-tick
-  ;; become-vacinated vaccinated-per-tick
+
+    if new_day [ ;; calculate r0 every day
+    calculate-r0
+    set nb-infected-previous nb-infected
+    set nb-infected 0
+    set nb-recovered 0]
   tick
 end
 
@@ -63,13 +92,11 @@ to healty
   ;; This function is run by all healty turtles
   set color green
   test-if-should-become-infected
-
 end
 
 
 to infected
   ;; This function is run by all infected turtles
-  set color red
   create-infection-area
   set i-am-already-infected-for-so-many-hours i-am-already-infected-for-so-many-hours + 1
   if i-am-already-infected-for-so-many-hours > after-how-many-days-can-you-become-ill * 24 and random 100 < getting-ill-chance [
@@ -83,9 +110,9 @@ to ill
   set vacination-target false
   set i-am-already-ill-for-so-many-hours i-am-already-ill-for-so-many-hours + 1
   if i-am-already-ill-for-so-many-hours > 96 [
-    ifelse i-am-already-ill-for-so-many-hours > 240 and random 100 < 20 and new_day = true [set category "immune"] ;; After 14 days if you recover, you are immune
-      [ifelse random 100 < 10 and new_day = true [set category "healty"] ;; After 4 days you have a 10% chance to recover
-        [if random 100 < 2 and new_day = true [set category "never-recover"] ;; After 4 days you have a 2% chance to never recover
+    ifelse i-am-already-ill-for-so-many-hours > 240 and random 100 < 20 and new_day = true [set category "immune" set total_immune total_immune + 1 set nb-recovered nb-recovered + 1] ;; After 14 days if you recover, you are immune
+      [ifelse random 100 < chance-to-recover and new_day = true [set category "healty" set total_recovered total_recovered + 1 set nb-recovered nb-recovered + 1] ;; After 4 days you have a chance-to-recover% chance to recover
+        [if random 100 < chance-to-die and new_day = true [set category "never-recover" set total_dead total_dead + 1] ;; After 4 days you have a chance-to-die% chance to never recover
   ]]]
 end
 
@@ -108,22 +135,21 @@ to inject-vacine-into-people
       set immune-level immune-level + 1
       if immune-level = vacinations-needed-to-become-immune [ ;;become vacinated
         set category "immune"
+        set total_immune total_immune + 1
         set color blue]]
     [set vacination-target false] ;; not healty.
   ]
 end
 
 
-to never-recover ;; old function for multiple immue but do we bring it back?
-  set color red - 3
+to never-recover ;; function that runs when by never recover
+  set color gray
 end
 
 
 to immune
   set color blue
   ;; This function is run by all immune turtles
-
-
 end
 
 
@@ -135,32 +161,106 @@ to create-infection-area
 end
 
 
+to become-infected
+  set category "infected"
+  set color red
+  set nb-infected nb-infected + 1
+  set total_infected total_infected + 1
+end
+
 to test-if-should-become-infected
   ;; If turtle is on patch that has infect-time-left than there is a change that a turtle gets infected
-
   ifelse infectious = true [
     set was-in-infected-area was-in-infected-area + 1
     if was-in-infected-area > 20 [
-      set category "infected"
+      become-infected
     ]
   ] [
     if was-in-infected-area > 0 [
       if random 100 < infect-chance [
-        set category "infected"
+        become-infected
       ]
       set was-in-infected-area 0
     ]
 
   ]
-
-
 end
+
+
+
+to calculate-r0 ;; Taken from travel and controll
+
+  let new-infected sum [ nb-infected ] of turtles
+  let new-recovered sum [ nb-recovered ] of turtles
+  let susceptible-t count turtles with [ category = "healty" ]  ;; Number of susceptibles now
+  let s0 initial-healty ;; Initial number of susceptibles
+
+  ifelse nb-infected-previous < 10
+  [ set beta-n 0 ]
+  [
+    set beta-n (new-infected / nb-infected-previous)       ;; This is the average number of new secondary infections per infected this tick
+  ]
+
+  ifelse nb-infected-previous < 5
+  [ set gamma 0 ]
+  [
+    set gamma (new-recovered / nb-infected-previous)     ;; This is the average number of new recoveries per infected this tick
+  ]
+
+  if ((initial-people - susceptible-t) != 0 and (susceptible-t != 0))   ;; Prevent from dividing by 0
+  [
+    ;; This is derived from integrating dI / dS = (beta*SI - gamma*I) / (-beta*SI)
+    ;; Assuming one infected individual introduced in the beginning, and hence counting I(0) as negligible,
+    ;; we get the relation
+    ;; N - gamma*ln(S(0)) / beta = S(t) - gamma*ln(S(t)) / beta, where N is the initial 'susceptible' population.
+    ;; Since N >> 1
+    ;; Using this, we have R_0 = beta*N / gamma = N*ln(S(0)/S(t)) / (K-S(t))
+    set r0 (ln (s0 / susceptible-t) / (initial-people - susceptible-t))
+    set r0 r0 * s0 ]
+end
+
+
+;; old r0 from travel and controll idk if I did it right
+;; to calculate-r0
+;;
+;;  let new-infected sum [ nb-infected ] of turtles
+;;  let new-recovered sum [ nb-recovered ] of turtles
+;;  set nb-infected-previous (count turtles with [ infected? ] + new-recovered - new-infected)  ;; Number of infected people at the previous tick
+;;  let susceptible-t (initial-people - (count turtles with [ infected? ]) - (count turtles with [ cured? ]))  ;; Number of susceptibles now
+;;  let s0 count turtles with [ susceptible? ] ;; Initial number of susceptibles
+
+;; ifelse nb-infected-previous < 10
+;;  [ set beta-n 0 ]
+;;  [
+;;    set beta-n (new-infected / nb-infected-previous)       ;; This is the average number of new secondary infections per infected this tick
+;;  ]
+
+;;  ifelse nb-infected-previous < 5
+;;  [ set gamma 0 ]
+;;  [
+;;    set gamma (new-recovered / nb-infected-previous)     ;; This is the average number of new recoveries per infected this tick
+;;  ]
+
+;;  if ((initial-people - susceptible-t) != 0 and (susceptible-t != 0))   ;; Prevent from dividing by 0
+;;  [
+    ;; This is derived from integrating dI / dS = (beta*SI - gamma*I) / (-beta*SI)
+    ;; Assuming one infected individual introduced in the beginning, and hence counting I(0) as negligible,
+    ;; we get the relation
+    ;; N - gamma*ln(S(0)) / beta = S(t) - gamma*ln(S(t)) / beta, where N is the initial 'susceptible' population.
+    ;; Since N >> 1
+    ;; Using this, we have R_0 = beta*N / gamma = N*ln(S(0)/S(t)) / (K-S(t))
+;;    set r0 (ln (s0 / susceptible-t) / (initial-people - susceptible-t))
+;;    set r0 r0 * s0 ]
+;;end
+
+
+; Copyright 2011 Uri Wilensky.
 @#$#@#$#@
 GRAPHICS-WINDOW
-389
-45
-885
-542
+433
+26
+929
+523
 -1
 -1
 8.0
@@ -218,15 +318,15 @@ NIL
 0
 
 SLIDER
-31
-132
-270
-165
+150
+87
+271
+120
 starting-infectious
 starting-infectious
 0
 20
-2.0
+3.0
 1
 1
 NIL
@@ -235,7 +335,7 @@ HORIZONTAL
 SLIDER
 31
 87
-270
+143
 120
 starting-healty
 starting-healty
@@ -248,10 +348,10 @@ NIL
 HORIZONTAL
 
 SWITCH
-924
-167
-1086
-200
+1100
+116
+1233
+149
 show-infect-area
 show-infect-area
 1
@@ -259,10 +359,10 @@ show-infect-area
 -1000
 
 SLIDER
-924
-120
-1086
-153
+989
+116
+1091
+149
 infect-range
 infect-range
 1
@@ -274,10 +374,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-922
-286
-1161
-319
+990
+201
+1093
+234
 infect-chance
 infect-chance
 0
@@ -289,13 +389,13 @@ NIL
 HORIZONTAL
 
 PLOT
-26
-367
-342
-570
-Plot
-time
-infected turtles
+27
+523
+343
+726
+Population
+Time
+NIL
 0.0
 10.0
 0.0
@@ -304,31 +404,32 @@ true
 true
 "" ""
 PENS
-"infected" 1.0 0 -2674135 true "" "plot count turtles with [category = \"infected\"]"
-"healty" 1.0 0 -8330359 true "" "plot count turtles with [category = \"healty\"]"
-"ill" 1.0 0 -10873583 true "" "plot count turtles with [category = \"ill\"] + count turtles with [category = \"never-recover\"]"
-"immune" 1.0 0 -13791810 true "" "plot count turtles with [category = \"immune\"]"
+"Healty" 1.0 0 -11085214 true "" "plot count turtles with [category = \"healty\"]"
+"Infected" 1.0 0 -2674135 true "" "plot count turtles with [category = \"infected\"]"
+"Dead" 1.0 0 -7500403 true "" "plot count turtles with [category = \"never-recover\"]"
+"Immune" 1.0 0 -13791810 true "" "plot count turtles with [category = \"immune\"]"
+"Ill" 1.0 0 -10873583 true "" "plot count turtles with [category = \"ill\"]"
 
 SLIDER
-922
-329
-1161
-362
+1101
+201
+1229
+234
 getting-ill-chance
 getting-ill-chance
 0
 100
-100.0
+20.0
 1
 1
 NIL
 HORIZONTAL
 
 CHOOSER
-924
-46
-1085
-91
+990
+58
+1231
+103
 background
 background
 9.9 0
@@ -352,10 +453,10 @@ NIL
 1
 
 SLIDER
-32
-314
-271
-347
+31
+249
+270
+282
 vacinations-needed-to-become-immune
 vacinations-needed-to-become-immune
 1
@@ -367,21 +468,10 @@ NIL
 HORIZONTAL
 
 MONITOR
-475
-556
-535
-601
-new day
-new_day
-17
-1
-11
-
-MONITOR
-389
-556
-461
-601
+429
+558
+501
+603
 NIL
 total_days
 17
@@ -389,40 +479,40 @@ total_days
 11
 
 SLIDER
-922
-373
-1162
-406
+990
+242
+1229
+275
 after-how-many-days-can-you-become-ill
 after-how-many-days-can-you-become-ill
 1
 14
-4.0
+6.0
 1
 1
 NIL
 HORIZONTAL
 
 SLIDER
-33
-227
-271
-260
+32
+162
+270
+195
 how-many-vacinaiton-places
 how-many-vacinaiton-places
 0
 20
-10.0
+1.0
 1
 1
 NIL
 HORIZONTAL
 
 SLIDER
-33
-270
-270
-303
+32
+205
+269
+238
 max-vacination-at-the-time
 max-vacination-at-the-time
 0
@@ -432,6 +522,68 @@ max-vacination-at-the-time
 1
 NIL
 HORIZONTAL
+
+SLIDER
+990
+283
+1092
+316
+chance-to-die
+chance-to-die
+0
+100
+2.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+1099
+282
+1229
+315
+chance-to-recover
+chance-to-recover
+0
+100
+15.0
+1
+1
+NIL
+HORIZONTAL
+
+PLOT
+28
+302
+344
+502
+Culmulative population
+time
+NIL
+0.0
+10.0
+0.0
+10.0
+true
+true
+"" ""
+PENS
+"Recovered" 1.0 0 -8330359 true "" "plot total_recovered"
+"Infected" 1.0 0 -2674135 true "" "plot total_infected"
+"Died" 1.0 0 -7500403 true "" "plot total_dead"
+"Immune" 1.0 0 -13791810 true "" "plot total_immune"
+
+MONITOR
+515
+558
+608
+603
+R0 (Per day)
+r0
+3
+1
+11
 
 @#$#@#$#@
 ## WHAT IS IT?
