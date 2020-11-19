@@ -1,7 +1,7 @@
-turtles-own [category my-immune-time was-in-infected-area alive-time immune-level time-till-next-vacination i-am-already-infected-for-so-many-days vacination-target]
+turtles-own [category my-immune-time was-in-infected-area alive-time immune-level time-till-next-vacination i-am-already-infected-for-so-many-hours i-am-already-ill-for-so-many-hours vacination-target]
 patches-own [infectious]
-
 globals [new_day total_days]
+
 
 to setup ;; Make all the turtles based on the sliders
   clear-all
@@ -15,22 +15,23 @@ to setup ;; Make all the turtles based on the sliders
 end
 
 
-
 to calculate_days
   ;; Run day calculations
+  let hours-in-day 24
   set total_days floor (ticks / hours-in-day)
   ifelse ticks mod hours-in-day = 0 [set new_day true] [set new_day false] ;; is ticks mod ticks-in-day 0 then it is a new day
 end
 
+
 to go  ;; Main function.
-  if count turtles with [category = "healty"] = 0 [stop] ;; stop if there are no healty people anymore
+  if count turtles with [category = "healty"] + count turtles with [category = "infected"] + count turtles with [category = "ill"] = 0 [stop] ;; stop if there are no healty people anymore
   calculate_days
   ifelse show-infect-area [
     ask patches with [infectious = true] [set pcolor background set infectious false ] ;; This is the else
   ] [ask patches [set pcolor background set infectious false]]
 
-
   ask turtles with [category = "ill"] [ ill ]
+  ask turtles with [category = "never-recover"] [ never-recover ]
   ask turtles with [category = "infected"] [ move infected]
   ask turtles with [category = "healty"] [ move healty]
   ask turtles with [category = "immune"] [ move immune]
@@ -38,9 +39,9 @@ to go  ;; Main function.
   select-vacinate-targets
   ;; let backup-vaccinated-per-tick vaccinated-per-tick
   ;; become-vacinated vaccinated-per-tick
-
   tick
 end
+
 
 to move
   set alive-time alive-time + 1
@@ -57,6 +58,7 @@ to move
     forward 1]
 end
 
+
 to healty
   ;; This function is run by all healty turtles
   set color green
@@ -64,89 +66,65 @@ to healty
 
 end
 
+
 to infected
   ;; This function is run by all infected turtles
   set color red
   create-infection-area
-  if new_day = true [
-    set i-am-already-infected-for-so-many-days i-am-already-infected-for-so-many-days + 1
-    if i-am-already-infected-for-so-many-days > after-how-many-days-can-you-become-ill and random 100 < getting-ill-chance [
+  set i-am-already-infected-for-so-many-hours i-am-already-infected-for-so-many-hours + 1
+  if i-am-already-infected-for-so-many-hours > after-how-many-days-can-you-become-ill * 24 and random 100 < getting-ill-chance [
       set category "ill"
       set color red - 3
-      set pcolor gray]] ;; once a day after after-how-many-days-can-you-become-ill you have a chance to become ill
+      set pcolor gray] ;; every 24 hours you have a chance to become ill
 end
+
 
 to ill
-  ;; This function is run by all ill turtles
-  ;; set color red - 3
-  ;; if random 100 < recovery-chance and new-day = true [become-immune]
+  set vacination-target false
+  set i-am-already-ill-for-so-many-hours i-am-already-ill-for-so-many-hours + 1
+  if i-am-already-ill-for-so-many-hours > 96 [
+    ifelse i-am-already-ill-for-so-many-hours > 240 and random 100 < 20 and new_day = true [set category "immune"] ;; After 14 days if you recover, you are immune
+      [ifelse random 100 < 10 and new_day = true [set category "healty"] ;; After 4 days you have a 10% chance to recover
+        [if random 100 < 2 and new_day = true [set category "never-recover"] ;; After 4 days you have a 2% chance to never recover
+  ]]]
 end
 
-;; old code
 
 to select-vacinate-targets
   while [count turtles with [vacination-target = true] < max-vacination-at-the-time and count turtles with [category = "healty" and vacination-target != true] > 0 ] [
 
-      ask one-of turtles with [category = "healty" and vacination-target != true] [
+      ask one-of turtles with [(category = "healty" or category = "infected") and vacination-target != true] [
         set vacination-target true
       ]
     ]
 
 end
 
+
 to inject-vacine-into-people
-  ask turtles in-radius 4 with [category = "healty" and vacination-target = true] [
-    set vacination-target false
-    set category "immune"
-    set color blue
+  ask turtles in-radius 4 with [vacination-target = true] [
+    ifelse category = "healty" [
+      set vacination-target false
+      set immune-level immune-level + 1
+      if immune-level = vacinations-needed-to-become-immune [ ;;become vacinated
+        set category "immune"
+        set color blue]]
+    [set vacination-target false] ;; not healty.
   ]
 end
 
 
-
-to become-immune ;; old function for multiple immue but do we bring it back?
-  set color blue
-  set category "immune"
-  set my-immune-time 60 + random 40
+to never-recover ;; old function for multiple immue but do we bring it back?
+  set color red - 3
 end
 
-
-to become-vacinated [amount]
-  repeat amount [
-    if count turtles with [category = "healty"  and time-till-next-vacination = 0] > 0[
-      ;; if there are healty turtles and they have not been facinated yet then do
-      ask one-of turtles with [category = "healty" and time-till-next-vacination = 0] [
-        set time-till-next-vacination 31
-        set immune-level immune-level + 1
-  ]]]
-
-  ;; make immune-level higher if timer hits 1 and reset timer
-  ask turtles with [category = "healty" and time-till-next-vacination = 1] [
-    set time-till-next-vacination 30
-    set immune-level immune-level + 1
-  ]
-
-  ;; make turtle become immune if immune-level = slider amount
-  ask turtles with [category = "healty" and immune-level = vacinations-needed-to-become-immune] [
-    set category "immune"
-    set my-immune-time -1
-  ]
-
-  ;; remove 1 from the vacination timer
-  ask turtles with [time-till-next-vacination > 0] [
-    set time-till-next-vacination time-till-next-vacination - 1
-  ]
-
-end
 
 to immune
   set color blue
   ;; This function is run by all immune turtles
 
-  if my-immune-time > 1 [set my-immune-time my-immune-time - 1]
-  if my-immune-time = 1 [set category "healty"]
-end
 
+end
 
 
 to create-infection-area
@@ -159,7 +137,6 @@ end
 
 to test-if-should-become-infected
   ;; If turtle is on patch that has infect-time-left than there is a change that a turtle gets infected
-
 
   ifelse infectious = true [
     set was-in-infected-area was-in-infected-area + 1
@@ -200,8 +177,8 @@ GRAPHICS-WINDOW
 30
 -30
 30
-0
-0
+1
+1
 1
 hours
 30.0
@@ -271,21 +248,21 @@ NIL
 HORIZONTAL
 
 SWITCH
-927
-208
-1089
-241
+924
+167
+1086
+200
 show-infect-area
 show-infect-area
-0
+1
 1
 -1000
 
 SLIDER
-926
-162
-1088
-195
+924
+120
+1086
+153
 infect-range
 infect-range
 1
@@ -297,10 +274,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-926
-303
-1089
-336
+922
+286
+1161
+319
 infect-chance
 infect-chance
 0
@@ -316,7 +293,7 @@ PLOT
 367
 342
 570
-plot 1
+Plot
 time
 infected turtles
 0.0
@@ -329,49 +306,19 @@ true
 PENS
 "infected" 1.0 0 -2674135 true "" "plot count turtles with [category = \"infected\"]"
 "healty" 1.0 0 -8330359 true "" "plot count turtles with [category = \"healty\"]"
-"ill" 1.0 0 -10873583 true "" "plot count turtles with [category = \"ill\"]"
+"ill" 1.0 0 -10873583 true "" "plot count turtles with [category = \"ill\"] + count turtles with [category = \"never-recover\"]"
 "immune" 1.0 0 -13791810 true "" "plot count turtles with [category = \"immune\"]"
 
 SLIDER
-33
-182
-272
-215
+922
+329
+1161
+362
 getting-ill-chance
 getting-ill-chance
 0
 100
-10.0
-1
-1
-NIL
-HORIZONTAL
-
-SLIDER
-1614
-766
-1853
-799
-vaccinated-per-tick
-vaccinated-per-tick
-0
-100
-3.0
-1
-1
-NIL
-HORIZONTAL
-
-SLIDER
-926
-353
-1090
-386
-infect-change-when-ill
-infect-change-when-ill
-0
-100
-40.0
+100.0
 1
 1
 NIL
@@ -413,17 +360,17 @@ vacinations-needed-to-become-immune
 vacinations-needed-to-become-immune
 1
 4
-3.0
+2.0
 1
 1
 NIL
 HORIZONTAL
 
 MONITOR
-575
-610
-635
-655
+475
+556
+535
+601
 new day
 new_day
 17
@@ -431,35 +378,40 @@ new_day
 11
 
 MONITOR
-725
-660
-797
-705
+389
+556
+461
+601
 NIL
 total_days
 17
 1
 11
 
-CHOOSER
-1025
-460
-1163
-505
-hours-in-day
-hours-in-day
-12 24
-0
-
 SLIDER
-989
-513
-1261
-546
+922
+373
+1162
+406
 after-how-many-days-can-you-become-ill
 after-how-many-days-can-you-become-ill
 1
 14
+4.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+33
+227
+271
+260
+how-many-vacinaiton-places
+how-many-vacinaiton-places
+0
+20
 10.0
 1
 1
@@ -467,25 +419,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-1284
-182
-1485
-215
-how-many-vacinaiton-places
-how-many-vacinaiton-places
-0
-20
-2.0
-1
-1
-NIL
-HORIZONTAL
-
-SLIDER
-83
-265
+33
 270
-298
+270
+303
 max-vacination-at-the-time
 max-vacination-at-the-time
 0
